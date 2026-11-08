@@ -1,0 +1,278 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id             String   @id @default(cuid())
+  name           String
+  email          String   @unique
+  password       String   @default("123456")
+  role           Role     @default(EMPLOYEE)
+  phone          String?
+  department     String?
+  position       String?
+  joinedDate     String?
+  avatar         String?
+  bankAccount    String?
+  bankName       String?
+  bankBin        String?
+  hourlyRate     Float    @default(50000)
+  viewBonusRate  Float    @default(5000)
+  isActive       Boolean  @default(true)
+  isDeleted      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  attendances     Attendance[]
+  leaveRequests   LeaveRequest[]
+  youtubeViews    YoutubeView[]
+  youtubeChannels YoutubeChannel[]
+  bonusPenalties  BonusPenalty[]
+  payrolls        Payroll[]
+  notifications   Notification[]
+  salaryHistories SalaryHistory[]
+
+  @@map("users")
+}
+
+model SalaryHistory {
+  id              String   @id @default(cuid())
+  userId          String
+  oldHourlyRate   Float
+  newHourlyRate   Float
+  oldViewBonusRate Float
+  newViewBonusRate Float
+  changedBy       String
+  note            String?
+  changedAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("salary_histories")
+}
+
+model Attendance {
+  id            String            @id @default(cuid())
+  userId        String
+  date          String
+  checkIn       DateTime?
+  checkOut      DateTime?
+  workHours     Float             @default(0)
+  overtimeHours Float             @default(0)
+  lateMinutes   Int               @default(0)
+  earlyMinutes  Int               @default(0)
+  amount        Float             @default(0)
+  status        AttendanceStatus  @default(PRESENT)
+  wifiSsid      String?
+  ipAddress     String?
+  note          String?
+  isDeleted     Boolean           @default(false)
+  createdAt     DateTime          @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("attendances")
+}
+
+model LeaveRequest {
+  id           String        @id @default(cuid())
+  userId       String
+  date         String
+  type         LeaveType
+  expectedTime String?
+  reason       String
+  status       RequestStatus @default(PENDING)
+  approvedBy   String?
+  isDeleted    Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("leave_requests")
+}
+
+model YoutubeView {
+  id              String        @id @default(cuid())
+  userId          String
+  channelId       String?       // FK to YoutubeChannel (null = manual entry)
+  channelName     String?
+  month           Int
+  year            Int
+  viewCount       BigInt        @default(0)
+  subscriberCount BigInt        @default(0)
+  amount          Float         @default(0)
+  status          RequestStatus @default(PENDING)
+  note            String?
+  isDeleted       Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+
+  user    User            @relation(fields: [userId], references: [id])
+  channel YoutubeChannel? @relation(fields: [channelId], references: [id])
+
+  @@map("youtube_views")
+}
+
+model YoutubeChannel {
+  id              String   @id @default(cuid())
+  userId          String
+  channelId       String   // YouTube channel ID e.g. UCxxxx
+  channelName     String
+  channelAvatar   String?
+  subscriberCount BigInt   @default(0)
+  accessToken     String   @db.Text
+  refreshToken    String   @db.Text
+  tokenExpiry     DateTime
+  isActive        Boolean  @default(true)
+  lastSyncAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id])
+  youtubeViews YoutubeView[]
+
+  @@unique([userId, channelId])
+  @@map("youtube_channels")
+}
+
+model YoutubeRevenue {
+  id          String   @id @default(cuid())
+  channelName String
+  month       Int
+  year        Int
+  revenue     Float
+  views       BigInt?
+  notes       String?
+  isDeleted   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@map("youtube_revenues")
+}
+
+model BonusPenalty {
+  id        String            @id @default(cuid())
+  userId    String
+  type      BonusPenaltyType
+  category  String
+  amount    Float
+  reason    String
+  date      DateTime          @default(now())
+  isDeleted Boolean           @default(false)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("bonus_penalties")
+}
+
+model Payroll {
+  id              String        @id @default(cuid())
+  userId          String
+  month           Int
+  year            Int
+  totalWorkHours  Float         @default(0)
+  baseHourlyWage  Float         @default(0)
+  totalHourlyPay  Float         @default(0)
+  youtubeBonus    Float         @default(0)
+  otherBonus      Float         @default(0)
+  totalPenalty    Float         @default(0)
+  finalSalary     Float         @default(0)
+  status          PayrollStatus @default(DRAFT)
+  note            String?
+  isDeleted       Boolean       @default(false)
+  lockedAt        DateTime?
+  createdAt       DateTime      @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, month, year])
+  @@map("payrolls")
+}
+
+model AppSettings {
+  id                     String @id @default("singleton")
+  latePenalty            Float  @default(50000)
+  forgetCheckOutPenalty  Float  @default(100000)
+  companyWifiSsid        String @default("CreatorHR_5G")
+  companyIp              String @default("192.168.1.1")
+  companyLat             String @default("10.776889")
+  companyLng             String @default("106.700806")
+  maxDistanceMeters      Int    @default(100)
+  workStartTime          String @default("08:30")
+  workEndTime            String @default("17:30")
+
+  @@map("app_settings")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  isRead    Boolean          @default(false)
+  type      NotificationType @default(INFO)
+  createdAt DateTime         @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}
+
+model ActivityLog {
+  id          String @id @default(cuid())
+  actorId     String
+  actorName   String
+  action      String
+  module      String
+  description String
+  timestamp   DateTime @default(now())
+
+  @@map("activity_logs")
+}
+
+// ==================== Enums ====================
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  HALF_DAY
+}
+
+enum LeaveType {
+  LEAVE
+  LATE
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum BonusPenaltyType {
+  BONUS
+  PENALTY
+}
+
+enum PayrollStatus {
+  DRAFT
+  LOCKED
+}
+
+enum NotificationType {
+  INFO
+  WARNING
+  ERROR
+  SUCCESS
+}
